@@ -1,12 +1,14 @@
 // Servidor do app de correcao de redacao (metodo Jana Rabelo).
-// Hospedavel publicamente: a correcao chama a API da Anthropic (chave de API,
-// nao depende mais do Claude Code local) e o acesso ao site exige login,
-// com registro protegido por um codigo de convite definido pelo dono do site.
+// Hospedavel publicamente: a correcao chama o Claude Code CLI usando um token
+// de assinatura de longa duracao (gerado com "claude setup-token", variavel
+// CLAUDE_CODE_OAUTH_TOKEN) em vez de uma chave de API paga por token. O acesso
+// ao site exige login, com registro protegido por um codigo de convite
+// definido pelo dono do site.
 
 const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
-const Anthropic = require("@anthropic-ai/sdk");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -17,12 +19,14 @@ const DATA_FILE = path.join(DATA_DIR, "corrections.json");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const SKILL_DIR = path.join(__dirname, "skill");
 
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "sonnet";
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const REGISTRATION_CODE = process.env.REGISTRATION_CODE || "";
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.warn("\nAVISO: variavel de ambiente ANTHROPIC_API_KEY nao definida -- as correcoes vao falhar ate configura-la.\n");
+if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  console.warn(
+    "\nAVISO: variavel de ambiente CLAUDE_CODE_OAUTH_TOKEN nao definida -- as correcoes vao falhar ate configura-la (gere com 'claude setup-token').\n"
+  );
 }
 if (!process.env.SESSION_SECRET) {
   console.warn("AVISO: SESSION_SECRET nao definida -- usando um valor aleatorio gerado agora (sessoes de login serao invalidadas a cada reinicio do servidor).");
@@ -30,8 +34,6 @@ if (!process.env.SESSION_SECRET) {
 if (!REGISTRATION_CODE) {
   console.warn("AVISO: REGISTRATION_CODE nao definida -- ninguem consegue criar conta ate voce configurar essa variavel de ambiente.");
 }
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const app = express();
 app.use(express.json({ limit: "5mb" }));
@@ -193,7 +195,12 @@ IMPORTANTE: responda ESTRITAMENTE com um unico objeto JSON valido, sem nenhum te
 "coerente" deve ser true se o paragrafo cumpre o essencial esperado da etapa (mesmo com pontos de melhoria a fazer) e false se ha um problema estrutural serio que precisa ser corrigido antes de avancar para a proxima etapa (por exemplo: tese sem os dois argumentos, paragrafo fora do recorte do tema, proposta de intervencao sem elementos minimos). Responda em portugues do Brasil.`;
 }
 
-// ---------- Chamada a API da Anthropic ----------
+// ---------- Chamada ao Claude Code CLI ----------
+
+// Garante que o binario local do Claude Code (instalado como dependencia do
+// projeto) seja encontrado, independente de o processo ter sido iniciado com
+// "npm start" ou diretamente com "node server.js".
+const CLAUDE_BIN_DIR = path.join(__dirname, "node_modules", ".bin");
 
 function extractJsonObject(text) {
   // Remove possiveis cercas de bloco de codigo e tenta parsear.
@@ -217,51 +224,81 @@ function extractJsonObject(text) {
   }
 }
 
-async function callClaude(prompt, maxTokens) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error(
-      "ANTHROPIC_API_KEY nao configurada neste servidor. O administrador do site precisa definir essa variavel de ambiente."
-    );
-  }
-
-  let response;
-  try {
-    response = await anthropic.messages.create({
-      model: ANTHROPIC_MODEL,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
+function runClaudeCLI(prompt) {
+  return new Promise((resolve, reject) => {
+    const env = Object.assign({}, process.env, {
+      PATH: `${CLAUDE_BIN_DIR}${path.delimiter}${process.env.PATH || ""}`,
     });
-  } catch (err) {
-    if (err && err.status === 401) {
-      throw new Error("Chave de API da Anthropic invalida. Verifique a variavel ANTHROPIC_API_KEY no servidor.");
-    }
-    if (err && err.status === 429) {
-      throw new Error("Limite de uso da API da Anthropic atingido. Tente novamente em alguns instantes.");
-    }
-    throw new Error(`Erro ao chamar a API da Anthropic: ${err.message || "erro desconhecido"}`);
-  }
 
-  if (response.stop_reason === "refusal") {
-    throw new Error("O modelo recusou esta solicitacao (classificador de seguranca). Tente reformular o texto.");
-  }
+    const child = spawn("claude", ["-p", "--output-format", "json", "--model", CLAUDE_MODEL], {
+      shell: process.platform === "win32",
+      env,
+    });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock) {
-    throw new Error("A resposta do modelo nao contem texto.");
+    let stdout = "";
+    let stderr = "";
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error("O Claude Code demorou demais para responder (timeout de 6 minutos)."));
+    }, 6 * 60 * 1000);
+
+    child.stdout.on("data", (d) => (stdout += d.toString()));
+    child.stderr.on("data", (d) => (stderr += d.toString()));
+
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      if (err.code === "ENOENT") {
+        reject(new Error('Comando "claude" nao encontrado neste servidor. Confirme que "@anthropic-ai/claude-code" esta instalado.'));
+      } else {
+        reject(err);
+      }
+    });
+
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code !== 0 && !stdout.trim()) {
+        reject(
+          new Error(
+            `Claude Code encerrou com erro (codigo ${code}): ${
+              stderr || "sem detalhes"
+            }. Verifique se CLAUDE_CODE_OAUTH_TOKEN esta configurada e valida.`
+          )
+        );
+        return;
+      }
+      resolve(stdout);
+    });
+
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
+}
+
+function unwrapClaudeOutput(rawOutput) {
+  // O modo --output-format json do Claude Code envolve a resposta num objeto
+  // com metadados. Tentamos extrair o campo de texto final; se o formato for
+  // diferente do esperado, caimos para tratar a saida inteira como o texto.
+  try {
+    const wrapper = JSON.parse(rawOutput);
+    if (typeof wrapper === "object" && wrapper !== null) {
+      return wrapper.result || wrapper.response || wrapper.output_text || rawOutput;
+    }
+  } catch (_) {
+    // rawOutput ja era texto puro (ou markdown com JSON dentro) -- segue com ele mesmo.
   }
-  return textBlock.text;
+  return rawOutput;
 }
 
 async function correctWithClaude(tema, texto) {
   const prompt = buildCorrectionPrompt(tema, texto);
-  const text = await callClaude(prompt, 12000);
-  return extractJsonObject(text);
+  const rawOutput = await runClaudeCLI(prompt);
+  return extractJsonObject(unwrapClaudeOutput(rawOutput));
 }
 
 async function tutorWithClaude(tema, etapaLabel, dica, texto, etapasAnteriores) {
   const prompt = buildTutorPrompt(tema, etapaLabel, dica, texto, etapasAnteriores);
-  const text = await callClaude(prompt, 4000);
-  return extractJsonObject(text);
+  const rawOutput = await runClaudeCLI(prompt);
+  return extractJsonObject(unwrapClaudeOutput(rawOutput));
 }
 
 // ---------- Autenticacao ----------
@@ -369,7 +406,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // ---------- Rotas da API ----------
 
 app.get("/api/status", (req, res) => {
-  res.json({ iaDisponivel: !!process.env.ANTHROPIC_API_KEY });
+  res.json({ iaDisponivel: !!process.env.CLAUDE_CODE_OAUTH_TOKEN });
 });
 
 const ORIGENS_VALIDAS = ["corrigir", "praticar", "aprender"];

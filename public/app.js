@@ -15,7 +15,7 @@ async function checarIaDisponivel() {
     const data = await resp.json();
     if (!data.iaDisponivel) {
       mostrarErro(
-        "A chave de API da Anthropic não está configurada neste servidor. Peça ao administrador do site para definir a variável de ambiente ANTHROPIC_API_KEY."
+        "O Claude Code não está configurado neste servidor. Peça ao administrador do site para gerar um token com 'claude setup-token' e definir a variável de ambiente CLAUDE_CODE_OAUTH_TOKEN."
       );
     }
   } catch (_) {
