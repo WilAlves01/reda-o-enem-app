@@ -41,3 +41,14 @@ function mostrarErro(msg) {
 function esconderErro() {
   bannerErro.classList.remove("show");
 }
+
+document.querySelectorAll(".toggle-senha").forEach((botao) => {
+  botao.addEventListener("click", () => {
+    const pill = botao.closest(".input-pill");
+    const input = pill.querySelector("input");
+    const visivel = input.type === "text";
+    input.type = visivel ? "password" : "text";
+    pill.classList.toggle("senha-visivel", !visivel);
+    botao.setAttribute("aria-label", visivel ? "Mostrar senha" : "Ocultar senha");
+  });
+});

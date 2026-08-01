@@ -196,54 +196,6 @@ a {
   cursor: pointer;
 }
 
-/* ----- Login / registro ----- */
-
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 380px;
-  background: var(--card-surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 32px 28px;
-}
-
-.auth-card .brand {
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-
-.auth-card h1 {
-  font-size: 20px;
-  margin: 0 0 20px;
-}
-
-.auth-card button.primary {
-  width: 100%;
-}
-
-.auth-switch {
-  margin: 18px 0 0;
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  text-align: center;
-}
-
-.auth-switch a {
-  color: var(--slot-1);
-  font-weight: 600;
-  text-decoration: none;
-}
-
 main {
   flex: 1;
   min-width: 0;

@@ -385,6 +385,8 @@ const CAMINHOS_PUBLICOS = new Set([
   "/login.js",
   "/register.js",
   "/styles.css",
+  "/auth.css",
+  "/img/login-bg.jpg",
   "/favicon.ico",
 ]);
 
