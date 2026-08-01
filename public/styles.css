@@ -1,13 +1,13 @@
 :root {
   color-scheme: light;
-  --surface-1: #fcfcfb;
-  --surface-page: #f9f9f7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --baseline: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
+  --surface-1: #f5f8fc;
+  --surface-page: #eaf1fa;
+  --text-primary: #0b1a2e;
+  --text-secondary: #46586e;
+  --text-muted: #8394a8;
+  --gridline: #d8e3f0;
+  --baseline: #b7c6d9;
+  --border: rgba(15, 40, 70, 0.12);
   --card-surface: #ffffff;
 
   --slot-1: #2a78d6; /* C1 - azul */
@@ -31,15 +31,15 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --surface-1: #1a1a19;
-    --surface-page: #0d0d0d;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --gridline: #2c2c2a;
-    --baseline: #383835;
-    --border: rgba(255, 255, 255, 0.1);
-    --card-surface: #232322;
+    --surface-1: #0f1c2e;
+    --surface-page: #0a1420;
+    --text-primary: #eef4fb;
+    --text-secondary: #aebed2;
+    --text-muted: #7a8ba0;
+    --gridline: #1c2c40;
+    --baseline: #2a3c54;
+    --border: rgba(180, 210, 255, 0.12);
+    --card-surface: #142338;
 
     --slot-1: #3987e5;
     --slot-2: #d95926;
@@ -145,7 +145,7 @@ a {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--card-surface);
   cursor: pointer;
@@ -284,8 +284,8 @@ button.primary {
   border: none;
   font-size: 14.5px;
   font-weight: 600;
-  padding: 12px 22px;
-  border-radius: 10px;
+  padding: 12px 24px;
+  border-radius: 999px;
   cursor: pointer;
 }
 
@@ -299,8 +299,8 @@ button.secondary {
   color: var(--text-secondary);
   border: 1px solid var(--border);
   font-size: 13.5px;
-  padding: 10px 16px;
-  border-radius: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
   cursor: pointer;
 }
 
@@ -933,39 +933,51 @@ main.aprender-main {
 .stat-tile {
   background: var(--card-surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  border-left: 3px solid var(--slot-1);
 }
 
 .stat-tile .label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
 }
 
 .stat-tile .value {
-  font-size: 24px;
+  font-size: 30px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 
 .chart-box {
-  background: var(--card-surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 20px 8px;
+  background: linear-gradient(160deg, #132644 0%, #0a1626 100%);
+  border: 1px solid rgba(140, 180, 230, 0.18);
+  border-radius: 18px;
+  padding: 22px 24px 14px;
   margin-bottom: 30px;
+  box-shadow: 0 12px 32px rgba(6, 16, 32, 0.28);
 }
 
 .chart-box h2 {
   font-size: 14px;
   margin: 0 0 4px;
+  color: #eef4fb;
 }
 
 .chart-box .chart-sub {
   font-size: 12.5px;
-  color: var(--text-muted);
+  color: rgba(234, 241, 251, 0.6);
   margin: 0 0 8px;
+}
+
+.chart-box .tooltip-chart {
+  background: #ffffff;
+  color: #0a1626;
 }
 
 table.historico {

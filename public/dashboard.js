@@ -159,12 +159,33 @@ function renderChart(host, chartBox, historico) {
   const x = (i) => padL + i * xStep;
   const y = (v) => padT + (1 - Math.max(0, Math.min(1000, v || 0)) / 1000) * (height - padT - padB);
 
+  const CHART_LINE = "#7dd3fc";
+  const CHART_GRID = "rgba(255, 255, 255, 0.09)";
+  const CHART_MUTED = "rgba(234, 241, 251, 0.55)";
+  const CHART_CROSSHAIR = "rgba(255, 255, 255, 0.35)";
+
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("width", "100%");
   svg.style.display = "block";
   svg.style.overflow = "visible";
+
+  const defs = document.createElementNS(svgNS, "defs");
+  defs.innerHTML = `
+    <filter id="chart-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="chart-area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${CHART_LINE}" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="${CHART_LINE}" stop-opacity="0" />
+    </linearGradient>
+  `;
+  svg.appendChild(defs);
 
   // gridlines + labels
   [0, 200, 400, 600, 800, 1000].forEach((v) => {
@@ -174,7 +195,7 @@ function renderChart(host, chartBox, historico) {
     line.setAttribute("x2", width - padR);
     line.setAttribute("y1", gy);
     line.setAttribute("y2", gy);
-    line.setAttribute("stroke", "var(--gridline)");
+    line.setAttribute("stroke", CHART_GRID);
     line.setAttribute("stroke-width", "1");
     svg.appendChild(line);
 
@@ -183,20 +204,33 @@ function renderChart(host, chartBox, historico) {
     label.setAttribute("y", gy + 4);
     label.setAttribute("text-anchor", "end");
     label.setAttribute("font-size", "11");
-    label.setAttribute("fill", "var(--text-muted)");
+    label.setAttribute("fill", CHART_MUTED);
     label.textContent = v;
     svg.appendChild(label);
   });
 
-  // linha
+  // area sob a linha
+  if (n) {
+    const areaD =
+      points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.notaTotal)}`).join(" ") +
+      ` L${x(n - 1)},${height - padB} L${x(0)},${height - padB} Z`;
+    const area = document.createElementNS(svgNS, "path");
+    area.setAttribute("d", areaD);
+    area.setAttribute("fill", "url(#chart-area)");
+    area.setAttribute("stroke", "none");
+    svg.appendChild(area);
+  }
+
+  // linha (com brilho)
   const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.notaTotal)}`).join(" ");
   const path = document.createElementNS(svgNS, "path");
   path.setAttribute("d", d);
   path.setAttribute("fill", "none");
-  path.setAttribute("stroke", "var(--slot-1)");
-  path.setAttribute("stroke-width", "2");
+  path.setAttribute("stroke", CHART_LINE);
+  path.setAttribute("stroke-width", "2.5");
   path.setAttribute("stroke-linecap", "round");
   path.setAttribute("stroke-linejoin", "round");
+  path.setAttribute("filter", "url(#chart-glow)");
   svg.appendChild(path);
 
   // marcadores
@@ -205,8 +239,8 @@ function renderChart(host, chartBox, historico) {
     c.setAttribute("cx", x(i));
     c.setAttribute("cy", y(p.notaTotal));
     c.setAttribute("r", "4");
-    c.setAttribute("fill", "var(--slot-1)");
-    c.setAttribute("stroke", "var(--surface-1)");
+    c.setAttribute("fill", CHART_LINE);
+    c.setAttribute("stroke", "#0a1626");
     c.setAttribute("stroke-width", "2");
     svg.appendChild(c);
   });
@@ -219,7 +253,7 @@ function renderChart(host, chartBox, historico) {
     label.setAttribute("y", y(last.notaTotal) - 8);
     label.setAttribute("font-size", "12");
     label.setAttribute("font-weight", "700");
-    label.setAttribute("fill", "var(--text-primary)");
+    label.setAttribute("fill", "#ffffff");
     label.textContent = last.notaTotal;
     svg.appendChild(label);
   }
@@ -228,7 +262,7 @@ function renderChart(host, chartBox, historico) {
   const crosshair = document.createElementNS(svgNS, "line");
   crosshair.setAttribute("y1", padT);
   crosshair.setAttribute("y2", height - padB);
-  crosshair.setAttribute("stroke", "var(--baseline)");
+  crosshair.setAttribute("stroke", CHART_CROSSHAIR);
   crosshair.setAttribute("stroke-width", "1");
   crosshair.setAttribute("stroke-dasharray", "3,3");
   crosshair.style.opacity = "0";

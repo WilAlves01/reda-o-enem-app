@@ -25,7 +25,7 @@ form.addEventListener("submit", async (ev) => {
       throw new Error(data.erro || "Erro ao entrar.");
     }
 
-    window.location.href = "index.html";
+    window.location.href = "home.html";
   } catch (err) {
     mostrarErro(err.message);
     btn.disabled = false;
