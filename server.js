@@ -12,11 +12,9 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const db = require("./db");
 
 const PORT = process.env.PORT || 4321;
-const DATA_DIR = path.join(__dirname, "data");
-const DATA_FILE = path.join(DATA_DIR, "corrections.json");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
 const SKILL_DIR = path.join(__dirname, "skill");
 
 const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "sonnet";
@@ -45,45 +43,6 @@ app.use(
     cookie: { httpOnly: true, sameSite: "lax", maxAge: 30 * 24 * 60 * 60 * 1000 },
   })
 );
-
-// ---------- Utilitarios de armazenamento local ----------
-
-function ensureDataFile(file, defaultContent) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(file)) fs.writeFileSync(file, defaultContent, "utf8");
-}
-
-function readHistory() {
-  ensureDataFile(DATA_FILE, "[]");
-  try {
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("Falha ao ler historico, recriando arquivo:", err.message);
-    return [];
-  }
-}
-
-function writeHistory(list) {
-  ensureDataFile(DATA_FILE, "[]");
-  fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), "utf8");
-}
-
-function readUsers() {
-  ensureDataFile(USERS_FILE, "[]");
-  try {
-    const raw = fs.readFileSync(USERS_FILE, "utf8");
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("Falha ao ler usuarios, recriando arquivo:", err.message);
-    return [];
-  }
-}
-
-function writeUsers(list) {
-  ensureDataFile(USERS_FILE, "[]");
-  fs.writeFileSync(USERS_FILE, JSON.stringify(list, null, 2), "utf8");
-}
 
 // ---------- Montagem do conteudo da skill ----------
 
@@ -325,44 +284,47 @@ app.post("/api/register", async (req, res) => {
     return res.status(400).json({ erro: "A senha precisa ter pelo menos 6 caracteres." });
   }
 
-  const usuarios = readUsers();
-  if (usuarios.some((u) => u.username === usernameNormalizado)) {
-    return res.status(409).json({ erro: "Ja existe uma conta com esse nome de usuario." });
+  try {
+    const existente = await db.getUserByUsername(usernameNormalizado);
+    if (existente) {
+      return res.status(409).json({ erro: "Ja existe uma conta com esse nome de usuario." });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const usuario = { id: crypto.randomUUID(), username: usernameNormalizado, passwordHash };
+    await db.createUser(usuario);
+
+    req.session.userId = usuario.id;
+    req.session.username = usuario.username;
+    res.json({ ok: true, username: usuario.username });
+  } catch (err) {
+    console.error("Erro ao criar conta:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao criar conta." });
   }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const usuario = {
-    id: crypto.randomUUID(),
-    username: usernameNormalizado,
-    passwordHash,
-    criadoEm: new Date().toISOString(),
-  };
-  usuarios.push(usuario);
-  writeUsers(usuarios);
-
-  req.session.userId = usuario.id;
-  req.session.username = usuario.username;
-  res.json({ ok: true, username: usuario.username });
 });
 
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body || {};
   const usernameNormalizado = normalizarUsuario(username);
 
-  const usuarios = readUsers();
-  const usuario = usuarios.find((u) => u.username === usernameNormalizado);
-  if (!usuario) {
-    return res.status(401).json({ erro: "Usuario ou senha invalidos." });
-  }
+  try {
+    const usuario = await db.getUserByUsername(usernameNormalizado);
+    if (!usuario) {
+      return res.status(401).json({ erro: "Usuario ou senha invalidos." });
+    }
 
-  const senhaOk = await bcrypt.compare(password || "", usuario.passwordHash);
-  if (!senhaOk) {
-    return res.status(401).json({ erro: "Usuario ou senha invalidos." });
-  }
+    const senhaOk = await bcrypt.compare(password || "", usuario.password_hash);
+    if (!senhaOk) {
+      return res.status(401).json({ erro: "Usuario ou senha invalidos." });
+    }
 
-  req.session.userId = usuario.id;
-  req.session.username = usuario.username;
-  res.json({ ok: true, username: usuario.username });
+    req.session.userId = usuario.id;
+    req.session.username = usuario.username;
+    res.json({ ok: true, username: usuario.username });
+  } catch (err) {
+    console.error("Erro ao entrar:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao entrar." });
+  }
 });
 
 app.post("/api/logout", (req, res) => {
@@ -436,9 +398,7 @@ app.post("/api/correct", async (req, res) => {
       marcacoes: resultado.marcacoes || [],
     };
 
-    const historico = readHistory();
-    historico.push(registro);
-    writeHistory(historico);
+    await db.insertCorrection(registro);
 
     res.json(registro);
   } catch (err) {
@@ -465,12 +425,9 @@ app.post("/api/tutor", async (req, res) => {
   }
 });
 
-app.get("/api/historico", (req, res) => {
-  const historico = readHistory()
-    .filter((r) => r.userId === req.session.userId)
-    .slice()
-    .sort((a, b) => new Date(a.data) - new Date(b.data))
-    .map((r) => ({
+app.get("/api/historico", async (req, res) => {
+  try {
+    const historico = (await db.getHistoryForUser(req.session.userId)).map((r) => ({
       id: r.id,
       data: r.data,
       origem: r.origem || "corrigir",
@@ -478,25 +435,40 @@ app.get("/api/historico", (req, res) => {
       notaTotal: r.notaTotal,
       competencias: (r.competencias || []).map((c) => ({ numero: c.numero, nome: c.nome, nota: c.nota })),
     }));
-  res.json(historico);
+    res.json(historico);
+  } catch (err) {
+    console.error("Erro ao carregar historico:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao carregar historico." });
+  }
 });
 
-app.get("/api/historico/:id", (req, res) => {
-  const historico = readHistory();
-  const registro = historico.find((r) => r.id === req.params.id && r.userId === req.session.userId);
-  if (!registro) return res.status(404).json({ erro: "Redacao nao encontrada no historico." });
-  res.json(registro);
+app.get("/api/historico/:id", async (req, res) => {
+  try {
+    const registro = await db.getCorrectionById(req.params.id, req.session.userId);
+    if (!registro) return res.status(404).json({ erro: "Redacao nao encontrada no historico." });
+    res.json(registro);
+  } catch (err) {
+    console.error("Erro ao carregar redacao:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao carregar redacao." });
+  }
 });
 
-app.delete("/api/historico/:id", (req, res) => {
-  const historico = readHistory();
-  const alvo = historico.find((r) => r.id === req.params.id && r.userId === req.session.userId);
-  if (!alvo) return res.json({ ok: true, removido: false });
-  const next = historico.filter((r) => r.id !== req.params.id);
-  writeHistory(next);
-  res.json({ ok: true, removido: true });
+app.delete("/api/historico/:id", async (req, res) => {
+  try {
+    const removido = await db.deleteCorrectionById(req.params.id, req.session.userId);
+    res.json({ ok: true, removido });
+  } catch (err) {
+    console.error("Erro ao remover redacao:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao remover redacao." });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`\nApp de correcao de redacao rodando em http://localhost:${PORT}\n`);
-});
+db.ensureSchema()
+  .catch((err) => {
+    console.error("Falha ao preparar o banco de dados:", err.message);
+  })
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`\nApp de correcao de redacao rodando em http://localhost:${PORT}\n`);
+    });
+  });

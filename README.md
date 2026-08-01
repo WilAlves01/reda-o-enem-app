@@ -8,16 +8,30 @@ A correção é feita chamando o **Claude Code CLI**, autenticado com um token d
 
 1. **Node.js 18 ou mais recente** — [nodejs.org](https://nodejs.org)
 2. **Uma assinatura Claude Pro, Max, Team ou Enterprise** com o Claude Code já autenticado na sua máquina (`claude --version` funcionando no terminal).
+3. **Um banco Postgres gratuito** — ex.: [neon.tech](https://neon.tech) ou [supabase.com](https://supabase.com). É onde contas e histórico ficam salvos de verdade (veja por quê logo abaixo).
 
 ## Variáveis de ambiente
 
 | Variável | Obrigatória | Para quê |
 |---|---|---|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Sim | Token de longa duração (gerado com `claude setup-token`) que autentica o Claude Code com sua assinatura, sem precisar de login interativo no servidor. |
+| `DATABASE_URL` | Sim | String de conexão do banco Postgres (contas + histórico). Sem ela, nada é salvo de forma permanente. |
 | `REGISTRATION_CODE` | Sim (para permitir cadastro) | Código de convite que quem for criar conta precisa digitar. Escolha algo só seu e compartilhe apenas com quem deve ter acesso. |
 | `SESSION_SECRET` | Recomendada | Chave usada para assinar o cookie de sessão. Se não definida, uma é gerada aleatoriamente a cada reinício do servidor — nesse caso, todo mundo é deslogado sempre que o servidor reinicia. Use uma string longa e aleatória. |
 | `ANTHROPIC_MODEL` | Não | Modelo usado nas correções (aceita alias como `sonnet`/`opus` ou o nome completo, ex.: `claude-sonnet-5`). Padrão: `sonnet`. |
 | `PORT` | Não | Porta do servidor. Padrão: `4321`. A maioria das hospedagens define isso automaticamente. |
+
+### Por que precisa de um banco de dados
+
+Hospedagens gratuitas/simples (como o plano free da Render) **não garantem disco permanente** — o servidor pode reiniciar (por inatividade ou a cada novo deploy) e perder qualquer arquivo salvo localmente. Por isso contas e histórico ficam num banco Postgres externo, que sobrevive independente do servidor reiniciar.
+
+### Conseguindo o `DATABASE_URL`
+
+1. Crie uma conta gratuita em [neon.tech](https://neon.tech) (ou [supabase.com](https://supabase.com)) e um novo projeto/banco.
+2. Copie a "Connection string" (formato `postgres://usuario:senha@host/banco?sslmode=require`).
+3. Use esse valor como variável `DATABASE_URL` (local ou na hospedagem). O app cria as tabelas automaticamente na primeira vez que roda — não precisa rodar SQL manualmente.
+
+Trate essa string como uma senha: nunca a compartilhe (ela contém a senha do banco embutida).
 
 ### Gerando o `CLAUDE_CODE_OAUTH_TOKEN`
 
@@ -43,6 +57,7 @@ Defina as variáveis de ambiente (Windows/PowerShell):
 
 ```
 $env:CLAUDE_CODE_OAUTH_TOKEN="o-token-gerado-acima"
+$env:DATABASE_URL="a-connection-string-do-seu-banco"
 $env:REGISTRATION_CODE="escolha-um-codigo"
 $env:SESSION_SECRET="uma-string-aleatoria-longa"
 npm start
@@ -52,6 +67,7 @@ macOS/Linux:
 
 ```
 export CLAUDE_CODE_OAUTH_TOKEN="o-token-gerado-acima"
+export DATABASE_URL="a-connection-string-do-seu-banco"
 export REGISTRATION_CODE="escolha-um-codigo"
 export SESSION_SECRET="uma-string-aleatoria-longa"
 npm start
@@ -88,14 +104,15 @@ O método completo (matriz oficial do ENEM, vocabulário da Jana Rabelo, casos d
 
 ## Onde ficam os dados
 
-`data/users.json` (contas, com senha sempre em hash — nunca em texto puro) e `data/corrections.json` (histórico de correções, cada uma vinculada ao usuário que a gerou). São arquivos locais no servidor onde o app roda; a maioria das hospedagens gratuitas/simples **não garante que esses arquivos persistam** entre deploys — para persistência real em produção, considere migrar para um banco de dados.
+Contas (com senha sempre em hash — nunca em texto puro) e histórico de correções ficam no banco Postgres apontado por `DATABASE_URL`, não em arquivos locais — por isso sobrevivem a reinícios e redeploys do servidor.
 
 ## Solução de problemas
 
 - **"O Claude Code não está configurado neste servidor"**: defina `CLAUDE_CODE_OAUTH_TOKEN` no ambiente onde o app roda (gere com `claude setup-token`) e reinicie o processo.
 - **Comando "claude" não encontrado**: confirme que `npm install` rodou sem erros — o Claude Code CLI é instalado como dependência do projeto (`@anthropic-ai/claude-code`).
+- **"DATABASE_URL não configurada neste servidor"**: defina essa variável com a connection string do seu banco Postgres (veja a seção acima).
+- **Continuo sendo deslogado / minha conta some**: confirme que `DATABASE_URL` e `SESSION_SECRET` estão definidas na hospedagem — sem elas, nada persiste entre reinícios do servidor.
 - **Não consigo criar conta / "Registro desabilitado"**: `REGISTRATION_CODE` não foi definida no servidor.
-- **Fui deslogado sozinho**: se `SESSION_SECRET` não estiver definida, o servidor gera uma nova a cada reinício, o que invalida todos os logins — defina essa variável para evitar isso.
 - **A correção demora muito ou expira**: o timeout padrão é de 6 minutos; textos muito longos podem demorar até 1-2 minutos. Tente novamente se expirar.
 - **Erro mencionando CLAUDE_CODE_OAUTH_TOKEN inválido**: o token pode ter expirado (validade de 1 ano) ou sido revogado — gere um novo com `claude setup-token`.
 - **Porta ocupada**: rode com `PORT=outraporta npm start`.
