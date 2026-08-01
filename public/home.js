@@ -34,27 +34,26 @@ async function carregarUltimaCorrecao() {
     const historico = await resp.json();
 
     if (!historico.length) {
-      container.innerHTML = `<div class="empty-state">Você ainda não corrigiu nenhuma redação. Vá em "Corrigir" para começar.</div>`;
+      container.className = "";
+      container.innerHTML = `<div class="empty-state home-empty-hint">Você ainda não corrigiu nenhuma redação. Vá em "Corrigir" para começar.</div>`;
       return;
     }
 
     const ultima = historico[historico.length - 1];
-    const card = document.createElement("div");
-    card.className = "ultima-correcao-card";
-    card.innerHTML = `
-      <div class="ultima-correcao-info">
-        <div class="tema">${escapeHtml(ultima.tema || "Tema não identificado")}</div>
-        <div class="data">${formatarData(ultima.data)}</div>
-      </div>
-      <div class="ultima-correcao-nota">${ultima.notaTotal ?? "—"}<span>/ 1000</span></div>
+    container.className = "ultima-correcao-float";
+    container.innerHTML = `
+      <a class="ultima-correcao-card" href="dashboard.html">
+        <div class="ultima-correcao-info">
+          <span class="label">Última correção</span>
+          <div class="tema">${escapeHtml(ultima.tema || "Tema não identificado")}</div>
+          <div class="data">${formatarData(ultima.data)}</div>
+        </div>
+        <div class="ultima-correcao-nota">${ultima.notaTotal ?? "—"}<span>/ 1000</span></div>
+      </a>
     `;
-    card.addEventListener("click", () => {
-      window.location.href = "dashboard.html";
-    });
-    container.innerHTML = "";
-    container.appendChild(card);
   } catch (err) {
-    container.innerHTML = `<div class="empty-state">Não foi possível carregar sua última correção.</div>`;
+    container.className = "";
+    container.innerHTML = `<div class="empty-state home-empty-hint">Não foi possível carregar sua última correção.</div>`;
   }
 }
 

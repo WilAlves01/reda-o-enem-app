@@ -7,57 +7,61 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="mobile-topbar">
-    <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
+  <header class="app-topbar">
     <div class="brand">Redação ENEM · Método Jana Rabelo</div>
-  </div>
-  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <button type="button" class="app-logout" id="btn-logout">Sair</button>
+  </header>
 
-  <div class="layout">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">Redação ENEM · Método Jana Rabelo</div>
-      <nav>
-        <a href="home.html">Início</a>
-        <a href="index.html">Corrigir</a>
-        <a href="praticar.html" class="active">Praticar</a>
-        <a href="aprender.html">Aprender</a>
-        <a href="dashboard.html">Dashboard</a>
-      </nav>
-      <div class="sidebar-footer">
-        <span class="sidebar-user" id="sidebar-user"></span>
-        <button type="button" class="sidebar-logout" id="btn-logout">Sair</button>
+  <main>
+    <h1>Praticar</h1>
+    <p class="subtitle">Sorteie um tema com textos motivadores e treine sua redação dissertativo-argumentativa. Quando terminar, envie para correção.</p>
+
+    <div class="tema-box" id="tema-box">
+      <div class="tema-header">
+        <span class="tema-label">Tema sorteado</span>
+        <button type="button" class="secondary" id="btn-novo-tema">Sortear novo tema</button>
       </div>
-    </aside>
+      <h2 id="tema-titulo"></h2>
+      <div id="textos-motivadores"></div>
+    </div>
 
-    <main>
-      <h1>Praticar</h1>
-      <p class="subtitle">Sorteie um tema com textos motivadores e treine sua redação dissertativo-argumentativa. Quando terminar, envie para correção.</p>
+    <div class="banner" id="banner-erro"><strong>Erro:</strong>&nbsp;<span id="banner-erro-texto"></span></div>
 
-      <div class="tema-box" id="tema-box">
-        <div class="tema-header">
-          <span class="tema-label">Tema sorteado</span>
-          <button type="button" class="secondary" id="btn-novo-tema">Sortear novo tema</button>
-        </div>
-        <h2 id="tema-titulo"></h2>
-        <div id="textos-motivadores"></div>
-      </div>
+    <div class="field">
+      <label for="texto">Sua redação</label>
+      <textarea id="texto" placeholder="Escreva aqui a sua redação sobre o tema sorteado acima..."></textarea>
+    </div>
+    <div class="actions">
+      <button type="button" class="primary" id="btn-corrigir">Corrigir esta redação</button>
+      <span class="status-line" id="status-linha"></span>
+    </div>
 
-      <div class="banner" id="banner-erro"><strong>Erro:</strong>&nbsp;<span id="banner-erro-texto"></span></div>
+    <div id="resultado"></div>
+  </main>
 
-      <div class="field">
-        <label for="texto">Sua redação</label>
-        <textarea id="texto" placeholder="Escreva aqui a sua redação sobre o tema sorteado acima..."></textarea>
-      </div>
-      <div class="actions">
-        <button type="button" class="primary" id="btn-corrigir">Corrigir esta redação</button>
-        <span class="status-line" id="status-linha"></span>
-      </div>
-
-      <div id="resultado"></div>
-    </main>
-  </div>
+  <nav class="bottom-nav">
+    <a href="index.html" class="bottom-nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <span>Corrigir</span>
+    </a>
+    <a href="praticar.html" class="bottom-nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>
+      <span>Praticar</span>
+    </a>
+    <a href="home.html" class="bottom-nav-item bottom-nav-center" aria-label="Início">
+      <span class="bottom-nav-center-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7"/><path d="M9 22V12h6v10"/><path d="M5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10"/></svg>
+      </span>
+    </a>
+    <a href="aprender.html" class="bottom-nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+      <span>Aprender</span>
+    </a>
+    <a href="dashboard.html" class="bottom-nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+      <span>Dashboard</span>
+    </a>
+  </nav>
 
   <script src="nav.js"></script>
   <script src="temas.js"></script>
