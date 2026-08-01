@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Entrar — Redação ENEM</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+      <h1>Entrar</h1>
+
+      <div class="banner" id="banner-erro"><strong>Erro:</strong>&nbsp;<span id="banner-erro-texto"></span></div>
+
+      <form id="form-login">
+        <div class="field">
+          <label for="username">Usuário</label>
+          <input type="text" id="username" name="username" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required />
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" id="btn-entrar">Entrar</button>
+        </div>
+      </form>
+
+      <p class="auth-switch">Ainda não tem conta? <a href="register.html">Criar conta</a></p>
+    </div>
+  </div>
+
+  <script src="login.js"></script>
+</body>
+</html>

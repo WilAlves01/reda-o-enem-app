@@ -1,0 +1,19 @@
+{
+  "name": "redacao-enem-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App para correcao de redacoes ENEM pelo metodo Jana Rabelo, com login por convite e correcao via API da Anthropic.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
+    "bcryptjs": "^3.0.3",
+    "express": "^4.19.2",
+    "express-session": "^1.19.0"
+  }
+}

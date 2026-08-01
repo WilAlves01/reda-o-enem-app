@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Criar conta — Redação ENEM</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+      <h1>Criar conta</h1>
+      <p class="subtitle" style="margin-bottom: 18px;">É preciso um código de convite fornecido pelo administrador do site para se registrar.</p>
+
+      <div class="banner" id="banner-erro"><strong>Erro:</strong>&nbsp;<span id="banner-erro-texto"></span></div>
+
+      <form id="form-registro">
+        <div class="field">
+          <label for="username">Usuário</label>
+          <input type="text" id="username" name="username" autocomplete="username" minlength="3" required />
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input type="password" id="password" name="password" autocomplete="new-password" minlength="6" required />
+        </div>
+        <div class="field">
+          <label for="password2">Confirmar senha</label>
+          <input type="password" id="password2" name="password2" autocomplete="new-password" minlength="6" required />
+        </div>
+        <div class="field">
+          <label for="codigo">Código de convite</label>
+          <input type="text" id="codigo" name="codigo" required />
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" id="btn-criar">Criar conta</button>
+        </div>
+      </form>
+
+      <p class="auth-switch">Já tem conta? <a href="login.html">Entrar</a></p>
+    </div>
+  </div>
+
+  <script src="register.js"></script>
+</body>
+</html>

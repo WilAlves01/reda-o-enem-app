@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard — Método Jana Rabelo</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="mobile-topbar">
+    <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+  </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+      <nav>
+        <a href="index.html">Corrigir</a>
+        <a href="praticar.html">Praticar</a>
+        <a href="aprender.html">Aprender</a>
+        <a href="dashboard.html" class="active">Dashboard</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="sidebar-user" id="sidebar-user"></span>
+        <button type="button" class="sidebar-logout" id="btn-logout">Sair</button>
+      </div>
+    </aside>
+
+    <main>
+      <h1>Dashboard</h1>
+      <p class="subtitle">Histórico de todas as redações já corrigidas neste computador, com a evolução da nota ao longo do tempo.</p>
+
+      <div id="conteudo">
+        <div class="empty-state">Carregando histórico...</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

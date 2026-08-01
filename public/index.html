@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Corrigir redação — Método Jana Rabelo</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="mobile-topbar">
+    <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+  </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+      <nav>
+        <a href="index.html" class="active">Corrigir</a>
+        <a href="praticar.html">Praticar</a>
+        <a href="aprender.html">Aprender</a>
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="sidebar-user" id="sidebar-user"></span>
+        <button type="button" class="sidebar-logout" id="btn-logout">Sair</button>
+      </div>
+    </aside>
+
+    <main>
+      <h1>Corrigir redação</h1>
+      <p class="subtitle">Cole o tema (opcional) e o texto da redação. A correção segue a matriz oficial do ENEM e o método de correção da Jana Rabelo.</p>
+
+      <div class="banner" id="banner-erro"><strong>Erro:</strong>&nbsp;<span id="banner-erro-texto"></span></div>
+
+      <form id="form-correcao">
+        <div class="field">
+          <label for="tema">Tema da proposta (opcional)</label>
+          <input type="text" id="tema" name="tema" placeholder="Ex.: Desafios para a valorização da herança africana no Brasil" />
+        </div>
+        <div class="field">
+          <label for="texto">Texto da redação</label>
+          <textarea id="texto" name="texto" placeholder="Cole aqui o texto completo da redação..." required></textarea>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" id="btn-corrigir">Corrigir redação</button>
+          <span class="status-line" id="status-linha"></span>
+        </div>
+      </form>
+
+      <div id="resultado"></div>
+    </main>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="anotacoes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

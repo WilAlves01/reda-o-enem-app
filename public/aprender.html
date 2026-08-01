@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aprender — Método Jana Rabelo</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="mobile-topbar">
+    <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+  </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">Redação ENEM · Método Jana Rabelo</div>
+      <nav>
+        <a href="index.html">Corrigir</a>
+        <a href="praticar.html">Praticar</a>
+        <a href="aprender.html" class="active">Aprender</a>
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="sidebar-user" id="sidebar-user"></span>
+        <button type="button" class="sidebar-logout" id="btn-logout">Sair</button>
+      </div>
+    </aside>
+
+    <main class="aprender-main">
+      <h1>Aprender</h1>
+      <p class="subtitle">Construa uma redação do zero, parágrafo por parágrafo, com a professora Jana Rabelo te orientando em cada etapa pelo chat ao lado.</p>
+
+      <div class="tema-box" id="tema-box">
+        <div class="tema-header">
+          <span class="tema-label">Tema da redação</span>
+          <button type="button" class="secondary" id="btn-novo-tema">Sortear novo tema</button>
+        </div>
+        <h2 id="tema-titulo"></h2>
+        <div id="textos-motivadores"></div>
+      </div>
+
+      <div class="banner" id="banner-erro"><strong>Erro:</strong>&nbsp;<span id="banner-erro-texto"></span></div>
+
+      <div class="aprender-layout">
+        <div class="aprender-etapas" id="etapas"></div>
+
+        <aside class="aprender-chat">
+          <div class="chat-header">
+            <div class="chat-avatar">JR</div>
+            <div>
+              <div class="chat-nome">Professora Jana</div>
+              <div class="chat-sub">te orientando parágrafo a parágrafo</div>
+            </div>
+          </div>
+          <div class="chat-mensagens" id="chat-mensagens"></div>
+        </aside>
+      </div>
+
+      <div id="resultado-final"></div>
+    </main>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="temas.js"></script>
+  <script src="anotacoes.js"></script>
+  <script src="aprender.js"></script>
+</body>
+</html>
