@@ -278,6 +278,9 @@ function runClaudeCLI(prompt) {
 }
 
 function unwrapClaudeOutput(rawOutput) {
+  if (/Failed to authenticate|API Error: 401|OAuth access token has been revoked|token (has )?expired/i.test(String(rawOutput))) {
+    throw new Error("O token do Claude neste servidor foi revogado ou expirou. Gere um novo com \"claude setup-token\" e atualize CLAUDE_CODE_OAUTH_TOKEN no Render.");
+  }
   // O modo --output-format json do Claude Code envolve a resposta num objeto
   // com metadados. Tentamos extrair o campo de texto final; se o formato for
   // diferente do esperado, caimos para tratar a saida inteira como o texto.
@@ -316,10 +319,10 @@ async function modelosGemini() {
   }
 }
 
-async function callGemini(prompt, maxOutputTokens) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`;
+async function callGemini(prompt, maxOutputTokens, modelo) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo || GEMINI_MODEL)}:generateContent`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 100 * 1000);
+  const timer = setTimeout(() => ctrl.abort(), 75 * 1000);
   let res;
   try {
     res = await fetch(url, {
@@ -360,17 +363,29 @@ async function callGemini(prompt, maxOutputTokens) {
 // Pede JSON para a IA das tarefas curtas: Gemini se houver chave, senao Claude Code.
 // Se o Gemini estiver sobrecarregado, tenta mais uma vez quando a falha foi rapida
 // e, persistindo, usa o Claude Code para o aluno nao ficar sem resposta.
+// Outro modelo "flash" disponivel para a chave, para quando o principal estiver sobrecarregado.
+let MODELO_RESERVA;
+async function modeloReserva() {
+  if (MODELO_RESERVA === undefined) {
+    const nomes = (await modelosGemini()).filter((n) => n !== GEMINI_MODEL && /flash/.test(n));
+    MODELO_RESERVA = nomes.find((n) => !/lite/.test(n)) || nomes[0] || null;
+  }
+  return MODELO_RESERVA;
+}
+
 async function iaRapida(prompt, maxOutputTokens) {
   if (process.env.GEMINI_API_KEY) {
-    for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      const inicio = Date.now();
+    const modelos = [GEMINI_MODEL];
+    for (let i = 0; i < modelos.length; i++) {
       try {
-        return extractJsonObject(await callGemini(prompt, maxOutputTokens));
+        return extractJsonObject(await callGemini(prompt, maxOutputTokens, modelos[i]));
       } catch (err) {
         if (!err.temporario) throw err;
-        console.warn(`Gemini indisponivel (tentativa ${tentativa}): ${err.message}`);
-        if (Date.now() - inicio > 30 * 1000) break; // falha lenta: nao vale esperar de novo
-        if (tentativa === 1) await new Promise((r) => setTimeout(r, 3000));
+        console.warn(`Gemini ${modelos[i]} indisponivel: ${err.message}`);
+        if (i === 0) {
+          const reserva = await modeloReserva();
+          if (reserva) modelos.push(reserva);
+        }
       }
     }
     console.warn("Usando o Claude Code no lugar do Gemini.");
