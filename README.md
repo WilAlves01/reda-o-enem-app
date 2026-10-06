@@ -117,6 +117,9 @@ mesmo histórico do site.
 - `POST /api/exercicio` — monta um exercício de lacunas (`parte`: `introducao`, `desenvolvimento1`, `desenvolvimento2` ou `conclusao`; `tema` opcional).
 - `POST /api/exercicio/analisar` — recebe `exercicio` e `respostas` (`{ "1": "...", "2": "..." }`) e devolve o parágrafo preenchido e a análise trecho a trecho, com repertório, desvios de português, competências e reescrita.
 
+- `POST /api/avaliar` — julga, critério a critério, os treinos de escrita do app (tese, parágrafos, proposta), para o aluno comparar com a própria autoavaliação. Recebe `tema`, `tarefa`, `texto` e `criterios`; devolve `criterios` (ok + comentário), `mensagem` e `versaoMelhorada`.
+- `POST /api/questoes-estrutura` — gera até 8 questões de múltipla escolha sobre a estrutura da redação (`n`, `evitar` = enunciados já vistos).
+
 Os prompts vêm do app de desktop (`guiado.js`). Trechos e desvios citados pela IA que não existem no texto do aluno são descartados.
 
 ## Personalizando o método de correção

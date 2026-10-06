@@ -289,6 +289,54 @@ function normalizarAvaliacao(bruto, n) {
   };
 }
 
+/* ------------------------------------------- questoes de estrutura (IA)
+
+   Questoes de multipla escolha sobre a estrutura da redacao, geradas a cada
+   treino para o aluno nao decorar as mesmas. O app tem um banco fixo de
+   reserva para quando estiver sem conexao.
+   ------------------------------------------------------------------- */
+
+function promptQuestoesEstrutura(skill, n, evitar) {
+  return `Voce e a professora Jana Rabelo preparando um treino rapido sobre a ESTRUTURA da redacao dissertativo-argumentativa do ENEM. Use o metodo da skill abaixo e as regras oficiais da banca.
+
+===== INICIO DO CONTEUDO DA SKILL =====
+${skill}
+===== FIM DO CONTEUDO DA SKILL =====
+
+Crie ${n} questoes de multipla escolha, cada uma com exatamente 4 alternativas e UMA unica correta, sem ambiguidade. Varie os assuntos entre:
+- funcao de cada paragrafo (introducao, desenvolvimentos, conclusao) e a ordem dos argumentos;
+- tese e topico frasal (inclusive identificar a melhor tese ou o melhor topico frasal num trecho);
+- proposta de intervencao (5 elementos: agente, acao, meio/modo, finalidade, detalhamento) e o que falta numa proposta dada;
+- repertorio legitimo, pertinente e produtivo x repertorio de bolso;
+- coesao (conectivos de abertura de cada paragrafo, retomadas);
+- as 5 competencias e o que cada uma avalia;
+- tangenciamento, fuga ao tema e situacoes que zeram a redacao.
+Pelo menos metade das questoes deve trazer um "trecho" curto de redacao (1 a 3 frases) para o aluno analisar. Use temas variados de problemas sociais brasileiros. As alternativas erradas devem ser plausiveis (erros comuns de estudantes), nao absurdas.
+${evitar && evitar.length ? `Nao repita estes enunciados ja usados: ${evitar.slice(0, 20).map((e) => `"${String(e).slice(0, 80)}"`).join("; ")}.` : ""}
+
+IMPORTANTE: responda ESTRITAMENTE com um unico objeto JSON valido, sem texto antes ou depois e sem blocos de codigo markdown:
+
+{
+  "questoes": [
+    {"enunciado":"string","trecho":"string ou vazio","alternativas":["a","b","c","d"],"correta":numero de 0 a 3,"explicacao":"2 a 3 frases explicando por que a correta e a certa e o erro das outras"}
+  ]
+}
+
+Responda em portugues do Brasil.`;
+}
+
+function normalizarQuestoes(bruto) {
+  return (bruto.questoes || [])
+    .map((q) => ({
+      enunciado: String(q.enunciado || "").trim(),
+      trecho: String(q.trecho || "").trim(),
+      alternativas: (q.alternativas || []).map((a) => String(a).trim()).filter(Boolean),
+      correta: Number(q.correta),
+      explicacao: String(q.explicacao || "").trim(),
+    }))
+    .filter((q) => q.enunciado && q.alternativas.length === 4 && q.correta >= 0 && q.correta <= 3 && q.explicacao);
+}
+
 function normalizarTutor(bruto) {
   return {
     mensagem: String(bruto.mensagem || "").trim(),
@@ -308,4 +356,6 @@ module.exports = {
   normalizarTutor,
   promptAvaliar,
   normalizarAvaliacao,
+  promptQuestoesEstrutura,
+  normalizarQuestoes,
 };

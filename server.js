@@ -645,6 +645,22 @@ app.post("/api/avaliar", async (req, res) => {
   }
 });
 
+// ---------- Questoes de estrutura da redacao (treino do app) ----------
+
+app.post("/api/questoes-estrutura", async (req, res) => {
+  const { n, evitar } = req.body || {};
+  const qtd = Math.min(8, Math.max(1, Number(n) || 5));
+  try {
+    const bruto = await iaRapida(guiado.promptQuestoesEstrutura(SKILL_CONTENT, qtd, Array.isArray(evitar) ? evitar : []), 8192);
+    const questoes = guiado.normalizarQuestoes(bruto);
+    if (!questoes.length) throw new Error("A IA nao devolveu questoes validas. Tente de novo.");
+    res.json({ questoes });
+  } catch (err) {
+    console.error("Erro ao gerar questoes de estrutura:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao gerar as questoes." });
+  }
+});
+
 app.get("/api/historico", async (req, res) => {
   try {
     const historico = (await db.getHistoryForUser(req.userId)).map((r) => ({
