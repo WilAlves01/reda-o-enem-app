@@ -236,6 +236,59 @@ function normalizarAnaliseGuiada(bruto, texto) {
   };
 }
 
+/* ---------------------------------------------- avaliacao por criterios
+
+   Exercicios curtos do app (tese, introducao com lacunas, paragrafos,
+   proposta de intervencao). O aluno marca a propria autoavaliacao e a
+   professora julga os mesmos criterios, um a um, com o rigor da banca.
+   ------------------------------------------------------------------- */
+
+function promptAvaliar(skill, { tema, tarefa, texto, criterios }) {
+  const lista = criterios.map((c, i) => `${i + 1}. ${c}`).join("\n");
+  return `Voce e a professora Jana Rabelo avaliando um exercicio curto de redacao ENEM feito por um aluno. Use o metodo da skill abaixo, com o rigor da banca.
+
+===== INICIO DO CONTEUDO DA SKILL =====
+${skill}
+===== FIM DO CONTEUDO DA SKILL =====
+
+Tema: ${tema || "nao informado"}
+Exercicio pedido ao aluno: ${tarefa}
+
+Texto do aluno:
+"""
+${texto}
+"""
+
+Julgue CADA criterio abaixo, na mesma ordem, como a banca julgaria. Marque "ok": true so quando o criterio esta claramente cumprido no texto; se estiver parcial ou duvidoso, marque false e diga o que falta. Em "comentario", cite o trecho do aluno entre aspas sempre que possivel e diga em uma ou duas frases por que cumpre ou nao.
+
+Criterios:
+${lista}
+
+Depois, escreva uma "versaoMelhorada": o mesmo texto do aluno reescrito para cumprir todos os criterios, MANTENDO as ideias e o repertorio dele (so ajuste o necessario). E uma "mensagem" curta, em primeira pessoa, tom encorajador mas preciso.
+
+IMPORTANTE: responda ESTRITAMENTE com um unico objeto JSON valido, sem texto antes ou depois e sem blocos de codigo markdown:
+
+{
+  "criterios": [ {"ok": boolean, "comentario": "string"} ],
+  "mensagem": "string - 2 a 4 frases",
+  "versaoMelhorada": "string"
+}
+
+O array "criterios" deve ter exatamente ${criterios.length} itens, na ordem dada. Responda em portugues do Brasil.`;
+}
+
+function normalizarAvaliacao(bruto, n) {
+  const cs = Array.isArray(bruto.criterios) ? bruto.criterios : [];
+  return {
+    criterios: Array.from({ length: n }, (_, i) => ({
+      ok: !!(cs[i] && cs[i].ok === true),
+      comentario: String((cs[i] && cs[i].comentario) || "").trim(),
+    })),
+    mensagem: String(bruto.mensagem || "").trim(),
+    versaoMelhorada: String(bruto.versaoMelhorada || "").trim(),
+  };
+}
+
 function normalizarTutor(bruto) {
   return {
     mensagem: String(bruto.mensagem || "").trim(),
@@ -253,4 +306,6 @@ module.exports = {
   normalizarExercicio,
   normalizarAnaliseGuiada,
   normalizarTutor,
+  promptAvaliar,
+  normalizarAvaliacao,
 };

@@ -627,6 +627,24 @@ app.post("/api/exercicio/analisar", async (req, res) => {
   }
 });
 
+// ---------- Avaliacao por criterios (exercicios curtos do app) ----------
+
+app.post("/api/avaliar", async (req, res) => {
+  const { tema, tarefa, texto, criterios } = req.body || {};
+  if (!texto || !String(texto).trim()) return res.status(400).json({ erro: "Envie o texto no campo 'texto'." });
+  if (!Array.isArray(criterios) || !criterios.length || criterios.length > 10) {
+    return res.status(400).json({ erro: "Envie de 1 a 10 criterios no campo 'criterios'." });
+  }
+  try {
+    const lista = criterios.map((c) => String(c).slice(0, 200));
+    const bruto = await iaRapida(guiado.promptAvaliar(SKILL_CONTENT, { tema, tarefa: String(tarefa || "").slice(0, 400), texto: String(texto).slice(0, 4000), criterios: lista }), 4096);
+    res.json(guiado.normalizarAvaliacao(bruto, lista.length));
+  } catch (err) {
+    console.error("Erro ao avaliar exercicio:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao avaliar o exercicio." });
+  }
+});
+
 app.get("/api/historico", async (req, res) => {
   try {
     const historico = (await db.getHistoryForUser(req.userId)).map((r) => ({
