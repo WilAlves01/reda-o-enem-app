@@ -13,6 +13,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const db = require("./db");
+const guiado = require("./guiado");
 
 const PORT = process.env.PORT || 4321;
 const SKILL_DIR = path.join(__dirname, "skill");
@@ -291,6 +292,73 @@ function unwrapClaudeOutput(rawOutput) {
   return rawOutput;
 }
 
+// ---------- Chamada ao Gemini (tarefas curtas e frequentes) ----------
+// O retorno de cada paragrafo (tutor) e o exercicio guiado sao pedidos curtos e
+// frequentes: vao para o Gemini quando GEMINI_API_KEY esta configurada, para
+// responder rapido e nao gastar a assinatura. Sem a chave, caem no Claude Code.
+// A correcao da redacao completa continua no Claude.
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+
+async function modelosGemini() {
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+      headers: { "x-goog-api-key": process.env.GEMINI_API_KEY },
+    });
+    const j = await r.json();
+    return (j.models || [])
+      .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map((m) => m.name.replace("models/", ""))
+      .filter((n) => /flash|pro/.test(n) && !/image|tts|audio|robotics|computer|preview/.test(n))
+      .slice(0, 8);
+  } catch (_) {
+    return [];
+  }
+}
+
+async function callGemini(prompt, maxOutputTokens) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3 * 60 * 1000);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, responseMimeType: "application/json", maxOutputTokens: maxOutputTokens || 8192 },
+      }),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    if (err.name === "AbortError") throw new Error("O Gemini demorou demais para responder.");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = json && json.error ? json.error.message : `HTTP ${res.status}`;
+    if (/not available|not found|no longer available/i.test(msg)) {
+      const nomes = await modelosGemini();
+      throw new Error(`Gemini: ${msg}${nomes.length ? ` -- modelos disponiveis para a chave: ${nomes.join(", ")} (ajuste GEMINI_MODEL)` : ""}`);
+    }
+    throw new Error(`Gemini: ${msg}`);
+  }
+  const cand = json && json.candidates && json.candidates[0];
+  const text = cand && cand.content && cand.content.parts ? cand.content.parts.map((p) => p.text || "").join("") : "";
+  if (!text) throw new Error(`Gemini devolveu resposta vazia (${(cand && cand.finishReason) || "sem motivo"}).`);
+  if (cand.finishReason === "MAX_TOKENS") throw new Error("A resposta do Gemini foi cortada no limite de tamanho.");
+  return text;
+}
+
+// Pede JSON para a IA das tarefas curtas: Gemini se houver chave, senao Claude Code.
+async function iaRapida(prompt, maxOutputTokens) {
+  if (process.env.GEMINI_API_KEY) return extractJsonObject(await callGemini(prompt, maxOutputTokens));
+  return extractJsonObject(unwrapClaudeOutput(await runClaudeCLI(prompt)));
+}
+
 async function correctWithClaude(tema, texto) {
   const prompt = buildCorrectionPrompt(tema, texto);
   const rawOutput = await runClaudeCLI(prompt);
@@ -299,8 +367,7 @@ async function correctWithClaude(tema, texto) {
 
 async function tutorWithClaude(tema, etapaLabel, dica, texto, etapasAnteriores) {
   const prompt = buildTutorPrompt(tema, etapaLabel, dica, texto, etapasAnteriores);
-  const rawOutput = await runClaudeCLI(prompt);
-  return extractJsonObject(unwrapClaudeOutput(rawOutput));
+  return guiado.normalizarTutor(await iaRapida(prompt, 4096));
 }
 
 // ---------- Autenticacao ----------
@@ -440,7 +507,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // ---------- Rotas da API ----------
 
 app.get("/api/status", (req, res) => {
-  res.json({ iaDisponivel: !!process.env.CLAUDE_CODE_OAUTH_TOKEN });
+  res.json({ iaDisponivel: !!process.env.CLAUDE_CODE_OAUTH_TOKEN, gemini: !!process.env.GEMINI_API_KEY });
 });
 
 const ORIGENS_VALIDAS = ["corrigir", "praticar", "aprender"];
@@ -492,6 +559,37 @@ app.post("/api/tutor", async (req, res) => {
   } catch (err) {
     console.error("Erro ao gerar feedback do tutor:", err);
     res.status(500).json({ erro: err.message || "Erro desconhecido ao gerar feedback." });
+  }
+});
+
+// ---------- Aprendizado guiado (exercicio de lacunas) ----------
+
+app.post("/api/exercicio", async (req, res) => {
+  const { parte, tema } = req.body || {};
+  try {
+    const bruto = await iaRapida(guiado.promptExercicio(SKILL_CONTENT, parte, tema), 8192);
+    res.json(guiado.normalizarExercicio(bruto));
+  } catch (err) {
+    console.error("Erro ao gerar exercicio guiado:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao gerar o exercicio." });
+  }
+});
+
+app.post("/api/exercicio/analisar", async (req, res) => {
+  const { exercicio, respostas } = req.body || {};
+  if (!exercicio || !exercicio.modelo) {
+    return res.status(400).json({ erro: "Envie o exercicio recebido no campo 'exercicio'." });
+  }
+  const preenchido = guiado.montarPreenchido(exercicio.modelo, respostas || {});
+  if (/lacuna não preenchida/.test(preenchido)) {
+    return res.status(400).json({ erro: "Preencha todas as lacunas antes de pedir a analise." });
+  }
+  try {
+    const bruto = await iaRapida(guiado.promptAnaliseGuiada(SKILL_CONTENT, exercicio, preenchido), 16384);
+    res.json({ preenchido, analise: guiado.normalizarAnaliseGuiada(bruto, preenchido) });
+  } catch (err) {
+    console.error("Erro ao analisar exercicio guiado:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao analisar o exercicio." });
   }
 });
 

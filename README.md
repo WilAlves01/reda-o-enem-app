@@ -19,6 +19,8 @@ A correção é feita chamando o **Claude Code CLI**, autenticado com um token d
 | `REGISTRATION_CODE` | Sim (para permitir cadastro) | Código de convite que quem for criar conta precisa digitar. Escolha algo só seu e compartilhe apenas com quem deve ter acesso. |
 | `SESSION_SECRET` | Recomendada | Chave usada para assinar o cookie de sessão. Se não definida, uma é gerada aleatoriamente a cada reinício do servidor — nesse caso, todo mundo é deslogado sempre que o servidor reinicia. Use uma string longa e aleatória. |
 | `ANTHROPIC_MODEL` | Não | Modelo usado nas correções (aceita alias como `sonnet`/`opus` ou o nome completo, ex.: `claude-sonnet-5`). Padrão: `sonnet`. |
+| `GEMINI_API_KEY` | Não | Chave da API do Gemini (Google AI Studio). Quando definida, o retorno de cada parágrafo (`/api/tutor`) e o aprendizado guiado (`/api/exercicio`) usam o Gemini: respondem mais rápido e não gastam a assinatura. Sem ela, essas rotas usam o Claude Code. A correção da redação completa continua sempre no Claude. |
+| `GEMINI_MODEL` | Não | Modelo do Gemini. Padrão: `gemini-3.5-flash`. Se o nome não existir para a chave, o erro lista os modelos disponíveis. |
 | `PORT` | Não | Porta do servidor. Padrão: `4321`. A maioria das hospedagens define isso automaticamente. |
 
 ### Por que precisa de um banco de dados
@@ -108,6 +110,14 @@ mesmo histórico do site.
 - Os tokens ficam na tabela `app_tokens` (só o hash), criada automaticamente.
 - `POST /api/app/logout` invalida o token.
 - Só as origens do app (`https://localhost`, `capacitor://localhost`) recebem liberação de CORS.
+
+## Treinos com IA (tutor e aprendizado guiado)
+
+- `POST /api/tutor` — retorno da professora sobre um parágrafo (`tema`, `etapaLabel`, `dica`, `texto`, `etapasAnteriores`). Responde `mensagem`, `pontosFortes`, `pontosMelhorar` e `coerente`.
+- `POST /api/exercicio` — monta um exercício de lacunas (`parte`: `introducao`, `desenvolvimento1`, `desenvolvimento2` ou `conclusao`; `tema` opcional).
+- `POST /api/exercicio/analisar` — recebe `exercicio` e `respostas` (`{ "1": "...", "2": "..." }`) e devolve o parágrafo preenchido e a análise trecho a trecho, com repertório, desvios de português, competências e reescrita.
+
+Os prompts vêm do app de desktop (`guiado.js`). Trechos e desvios citados pela IA que não existem no texto do aluno são descartados.
 
 ## Personalizando o método de correção
 
