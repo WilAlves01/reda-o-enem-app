@@ -48,6 +48,33 @@ async function ensureSchema() {
       marcacoes JSONB
     );
   `);
+  // Tokens do app de celular (Roteiro ENEM 30). Guarda so o hash do token.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_tokens (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+}
+
+async function createAppToken(tokenHash, userId) {
+  requireDb();
+  await pool.query("INSERT INTO app_tokens (token_hash, user_id) VALUES ($1, $2)", [tokenHash, userId]);
+}
+
+async function getUserByAppToken(tokenHash) {
+  requireDb();
+  const { rows } = await pool.query(
+    "SELECT u.id, u.username FROM app_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = $1",
+    [tokenHash]
+  );
+  return rows[0] || null;
+}
+
+async function deleteAppToken(tokenHash) {
+  requireDb();
+  await pool.query("DELETE FROM app_tokens WHERE token_hash = $1", [tokenHash]);
 }
 
 async function getUserByUsername(username) {
@@ -125,4 +152,7 @@ module.exports = {
   getHistoryForUser,
   getCorrectionById,
   deleteCorrectionById,
+  createAppToken,
+  getUserByAppToken,
+  deleteAppToken,
 };

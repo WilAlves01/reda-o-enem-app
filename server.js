@@ -44,6 +44,49 @@ app.use(
   })
 );
 
+// ---------- Acesso pelo app de celular (Roteiro ENEM 30) ----------
+// O app Android roda numa WebView com origem propria (https://localhost) e nao
+// carrega o cookie de sessao do site. Por isso ele entra com usuario e senha em
+// /api/app/login, recebe um token e manda "Authorization: Bearer <token>".
+// O site continua usando so o cookie, como antes.
+
+const ORIGENS_APP = new Set(["https://localhost", "http://localhost", "capacitor://localhost", "http://localhost:8929"]);
+
+app.use((req, res, next) => {
+  const origem = req.headers.origin;
+  if (origem && ORIGENS_APP.has(origem)) {
+    res.setHeader("Access-Control-Allow-Origin", origem);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Max-Age", "86400");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+  }
+  next();
+});
+
+const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+// Descobre quem esta pedindo: cookie do site ou token do app.
+app.use(async (req, res, next) => {
+  if (req.session && req.session.userId) {
+    req.userId = req.session.userId;
+    return next();
+  }
+  const auth = req.headers.authorization || "";
+  if (!auth.startsWith("Bearer ")) return next();
+  try {
+    const usuario = await db.getUserByAppToken(hashToken(auth.slice(7).trim()));
+    if (usuario) {
+      req.userId = usuario.id;
+      req.username = usuario.username;
+    }
+  } catch (err) {
+    console.error("Erro ao validar token do app:", err.message);
+  }
+  next();
+});
+
 // ---------- Montagem do conteudo da skill ----------
 
 function loadSkillContent() {
@@ -331,6 +374,33 @@ app.post("/api/logout", (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
+app.post("/api/app/login", async (req, res) => {
+  const { username, password } = req.body || {};
+  try {
+    const usuario = await db.getUserByUsername(normalizarUsuario(username));
+    const senhaOk = usuario && (await bcrypt.compare(password || "", usuario.password_hash));
+    if (!senhaOk) {
+      return res.status(401).json({ erro: "Usuario ou senha invalidos." });
+    }
+    const token = crypto.randomBytes(32).toString("hex");
+    await db.createAppToken(hashToken(token), usuario.id);
+    res.json({ ok: true, token, username: usuario.username, iaDisponivel: !!process.env.CLAUDE_CODE_OAUTH_TOKEN });
+  } catch (err) {
+    console.error("Erro no login do app:", err);
+    res.status(500).json({ erro: err.message || "Erro desconhecido ao entrar." });
+  }
+});
+
+app.post("/api/app/logout", async (req, res) => {
+  const auth = req.headers.authorization || "";
+  try {
+    if (auth.startsWith("Bearer ")) await db.deleteAppToken(hashToken(auth.slice(7).trim()));
+  } catch (err) {
+    console.error("Erro ao sair do app:", err.message);
+  }
+  res.json({ ok: true });
+});
+
 app.get("/api/session", (req, res) => {
   if (req.session && req.session.userId) {
     res.json({ loggedIn: true, username: req.session.username });
@@ -353,10 +423,10 @@ const CAMINHOS_PUBLICOS = new Set([
 ]);
 
 app.use((req, res, next) => {
-  if (CAMINHOS_PUBLICOS.has(req.path) || req.path.startsWith("/api/login") || req.path.startsWith("/api/register")) {
+  if (CAMINHOS_PUBLICOS.has(req.path) || req.path.startsWith("/api/login") || req.path.startsWith("/api/register") || req.path.startsWith("/api/app/")) {
     return next();
   }
-  if (req.session && req.session.userId) {
+  if (req.userId) {
     return next();
   }
   if (req.path.startsWith("/api/")) {
@@ -386,7 +456,7 @@ app.post("/api/correct", async (req, res) => {
 
     const registro = {
       id: crypto.randomUUID(),
-      userId: req.session.userId,
+      userId: req.userId,
       data: new Date().toISOString(),
       origem: ORIGENS_VALIDAS.includes(origem) ? origem : "corrigir",
       tema: resultado.tema || tema || "Tema nao identificado",
@@ -427,7 +497,7 @@ app.post("/api/tutor", async (req, res) => {
 
 app.get("/api/historico", async (req, res) => {
   try {
-    const historico = (await db.getHistoryForUser(req.session.userId)).map((r) => ({
+    const historico = (await db.getHistoryForUser(req.userId)).map((r) => ({
       id: r.id,
       data: r.data,
       origem: r.origem || "corrigir",
@@ -444,7 +514,7 @@ app.get("/api/historico", async (req, res) => {
 
 app.get("/api/historico/:id", async (req, res) => {
   try {
-    const registro = await db.getCorrectionById(req.params.id, req.session.userId);
+    const registro = await db.getCorrectionById(req.params.id, req.userId);
     if (!registro) return res.status(404).json({ erro: "Redacao nao encontrada no historico." });
     res.json(registro);
   } catch (err) {
@@ -455,7 +525,7 @@ app.get("/api/historico/:id", async (req, res) => {
 
 app.delete("/api/historico/:id", async (req, res) => {
   try {
-    const removido = await db.deleteCorrectionById(req.params.id, req.session.userId);
+    const removido = await db.deleteCorrectionById(req.params.id, req.userId);
     res.json({ ok: true, removido });
   } catch (err) {
     console.error("Erro ao remover redacao:", err);

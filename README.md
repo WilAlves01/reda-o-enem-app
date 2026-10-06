@@ -98,6 +98,17 @@ O app é um servidor Node.js comum (Express) e roda em qualquer hospedagem que s
 
 **Aba "Dashboard"** — total de redações corrigidas, nota média, melhor nota, gráfico de evolução e a tabela completa do seu histórico (com a origem — Corrigir/Praticar/Aprender — de cada uma).
 
+## Acesso pelo app de celular (Roteiro ENEM 30)
+
+O app Android Roteiro ENEM 30 usa este servidor para corrigir as redações completas. Ele não usa o cookie
+do site: entra em `POST /api/app/login` com o mesmo usuário e senha, recebe um token e manda
+`Authorization: Bearer <token>` nas chamadas a `/api/correct`. As correções feitas pelo app aparecem no
+mesmo histórico do site.
+
+- Os tokens ficam na tabela `app_tokens` (só o hash), criada automaticamente.
+- `POST /api/app/logout` invalida o token.
+- Só as origens do app (`https://localhost`, `capacitor://localhost`) recebem liberação de CORS.
+
 ## Personalizando o método de correção
 
 O método completo (matriz oficial do ENEM, vocabulário da Jana Rabelo, casos de calibração e método de planejamento) está nos arquivos dentro de `skill/`. Edite esses Markdown diretamente para ajustar critérios ou registrar mudanças de edições futuras do ENEM — o app sempre lê o conteúdo mais recente antes de cada correção.
