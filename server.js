@@ -319,7 +319,7 @@ async function modelosGemini() {
 async function callGemini(prompt, maxOutputTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 3 * 60 * 1000);
+  const timer = setTimeout(() => ctrl.abort(), 100 * 1000);
   let res;
   try {
     res = await fetch(url, {
@@ -332,8 +332,9 @@ async function callGemini(prompt, maxOutputTokens) {
       signal: ctrl.signal,
     });
   } catch (err) {
-    if (err.name === "AbortError") throw new Error("O Gemini demorou demais para responder.");
-    throw err;
+    const e = new Error(err.name === "AbortError" ? "O Gemini demorou demais para responder." : `Gemini: ${err.message}`);
+    e.temporario = true;
+    throw e;
   } finally {
     clearTimeout(timer);
   }
@@ -344,7 +345,10 @@ async function callGemini(prompt, maxOutputTokens) {
       const nomes = await modelosGemini();
       throw new Error(`Gemini: ${msg}${nomes.length ? ` -- modelos disponiveis para a chave: ${nomes.join(", ")} (ajuste GEMINI_MODEL)` : ""}`);
     }
-    throw new Error(`Gemini: ${msg}`);
+    const e = new Error(`Gemini: ${msg}`);
+    // sobrecarga, limite de uso ou falha do lado do Google: vale tentar de novo ou usar o Claude
+    e.temporario = [429, 500, 502, 503, 504].includes(res.status) || /high demand|overloaded|unavailable|try again|quota|rate/i.test(msg);
+    throw e;
   }
   const cand = json && json.candidates && json.candidates[0];
   const text = cand && cand.content && cand.content.parts ? cand.content.parts.map((p) => p.text || "").join("") : "";
@@ -354,8 +358,23 @@ async function callGemini(prompt, maxOutputTokens) {
 }
 
 // Pede JSON para a IA das tarefas curtas: Gemini se houver chave, senao Claude Code.
+// Se o Gemini estiver sobrecarregado, tenta mais uma vez quando a falha foi rapida
+// e, persistindo, usa o Claude Code para o aluno nao ficar sem resposta.
 async function iaRapida(prompt, maxOutputTokens) {
-  if (process.env.GEMINI_API_KEY) return extractJsonObject(await callGemini(prompt, maxOutputTokens));
+  if (process.env.GEMINI_API_KEY) {
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      const inicio = Date.now();
+      try {
+        return extractJsonObject(await callGemini(prompt, maxOutputTokens));
+      } catch (err) {
+        if (!err.temporario) throw err;
+        console.warn(`Gemini indisponivel (tentativa ${tentativa}): ${err.message}`);
+        if (Date.now() - inicio > 30 * 1000) break; // falha lenta: nao vale esperar de novo
+        if (tentativa === 1) await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+    console.warn("Usando o Claude Code no lugar do Gemini.");
+  }
   return extractJsonObject(unwrapClaudeOutput(await runClaudeCLI(prompt)));
 }
 
