@@ -11,7 +11,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.1.220",
+    "@anthropic-ai/claude-code": "^2.1.318",
     "bcryptjs": "^3.0.3",
     "express": "^4.19.2",
     "express-session": "^1.19.0",

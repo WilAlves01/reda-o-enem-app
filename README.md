@@ -19,8 +19,8 @@ A correção é feita chamando o **Claude Code CLI**, autenticado com um token d
 | `REGISTRATION_CODE` | Sim (para permitir cadastro) | Código de convite que quem for criar conta precisa digitar. Escolha algo só seu e compartilhe apenas com quem deve ter acesso. |
 | `SESSION_SECRET` | Recomendada | Chave usada para assinar o cookie de sessão. Se não definida, uma é gerada aleatoriamente a cada reinício do servidor — nesse caso, todo mundo é deslogado sempre que o servidor reinicia. Use uma string longa e aleatória. |
 | `ANTHROPIC_MODEL` | Não | Modelo usado nas correções (aceita alias como `sonnet`/`opus` ou o nome completo, ex.: `claude-sonnet-5`). Padrão: `sonnet`. |
-| `GEMINI_API_KEY` | Não | Chave da API do Gemini (Google AI Studio). Quando definida, o retorno de cada parágrafo (`/api/tutor`) e o aprendizado guiado (`/api/exercicio`) usam o Gemini: respondem mais rápido e não gastam a assinatura. Sem ela, essas rotas usam o Claude Code. A correção da redação completa continua sempre no Claude. |
-| `GEMINI_MODEL` | Não | Modelo do Gemini. Padrão: `gemini-3.5-flash`. Se o nome não existir para a chave, o erro lista os modelos disponíveis. |
+| `GEMINI_API_KEY` | Não | Chave da API do Gemini (Google AI Studio). Quando definida, a correção da redação (`/api/correct`), o retorno de cada parágrafo (`/api/tutor`) e o aprendizado guiado (`/api/exercicio`) usam o Gemini: respondem mais rápido e não gastam a assinatura. Sem ela, essas rotas usam o Claude Code. A correção da redação completa continua sempre no Claude. |
+| `GEMINI_MODEL` | Não | Modelo do Gemini. Padrão: `gemini-3.5-flash`. Se o modelo for aposentado, o servidor passa sozinho para outro modelo flash da chave. |
 | `PORT` | Não | Porta do servidor. Padrão: `4321`. A maioria das hospedagens define isso automaticamente. |
 
 ### Por que precisa de um banco de dados

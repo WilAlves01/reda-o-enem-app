@@ -287,9 +287,11 @@ function unwrapClaudeOutput(rawOutput) {
   try {
     const wrapper = JSON.parse(rawOutput);
     if (typeof wrapper === "object" && wrapper !== null) {
+      if (wrapper.is_error) throw new Error(`Claude Code: ${String(wrapper.result || "erro sem detalhes").slice(0, 300)}`);
       return wrapper.result || wrapper.response || wrapper.output_text || rawOutput;
     }
-  } catch (_) {
+  } catch (err) {
+    if (/^Claude Code:/.test(err.message)) throw err;
     // rawOutput ja era texto puro (ou markdown com JSON dentro) -- segue com ele mesmo.
   }
   return rawOutput;
@@ -299,9 +301,11 @@ function unwrapClaudeOutput(rawOutput) {
 // O retorno de cada paragrafo (tutor) e o exercicio guiado sao pedidos curtos e
 // frequentes: vao para o Gemini quando GEMINI_API_KEY esta configurada, para
 // responder rapido e nao gastar a assinatura. Sem a chave, caem no Claude Code.
-// A correcao da redacao completa continua no Claude.
+// A correcao da redacao completa tambem vai para o Gemini, com mais tempo e mais tokens.
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+
+const versaoModelo = (nome) => { const m = /(\d+(?:\.\d+)?)/.exec(nome); return m ? Number(m[1]) : 99; }; // sem numero = alias "latest"
 
 async function modelosGemini() {
   try {
@@ -313,16 +317,17 @@ async function modelosGemini() {
       .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
       .map((m) => m.name.replace("models/", ""))
       .filter((n) => /flash|pro/.test(n) && !/image|tts|audio|robotics|computer|preview/.test(n))
+      .sort((a, b) => versaoModelo(b) - versaoModelo(a))
       .slice(0, 8);
   } catch (_) {
     return [];
   }
 }
 
-async function callGemini(prompt, maxOutputTokens, modelo) {
+async function callGemini(prompt, maxOutputTokens, modelo, tempoMs) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo || GEMINI_MODEL)}:generateContent`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 75 * 1000);
+  const timer = setTimeout(() => ctrl.abort(), tempoMs || 75 * 1000);
   let res;
   try {
     res = await fetch(url, {
@@ -344,9 +349,12 @@ async function callGemini(prompt, maxOutputTokens, modelo) {
   const json = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = json && json.error ? json.error.message : `HTTP ${res.status}`;
-    if (/not available|not found|no longer available/i.test(msg)) {
+    // modelo aposentado ("please update your code to use a newer model"): vale trocar de modelo
+    if (/not available|not found|no longer available|update your code|deprecated|retired|decommission/i.test(msg)) {
       const nomes = await modelosGemini();
-      throw new Error(`Gemini: ${msg}${nomes.length ? ` -- modelos disponiveis para a chave: ${nomes.join(", ")} (ajuste GEMINI_MODEL)` : ""}`);
+      const e = new Error(`Gemini: ${msg}${nomes.length ? ` -- modelos disponiveis para a chave: ${nomes.join(", ")} (ajuste GEMINI_MODEL)` : ""}`);
+      e.trocarModelo = true;
+      throw e;
     }
     const e = new Error(`Gemini: ${msg}`);
     // sobrecarga, limite de uso ou falha do lado do Google: vale tentar de novo ou usar o Claude
@@ -355,8 +363,11 @@ async function callGemini(prompt, maxOutputTokens, modelo) {
   }
   const cand = json && json.candidates && json.candidates[0];
   const text = cand && cand.content && cand.content.parts ? cand.content.parts.map((p) => p.text || "").join("") : "";
-  if (!text) throw new Error(`Gemini devolveu resposta vazia (${(cand && cand.finishReason) || "sem motivo"}).`);
-  if (cand.finishReason === "MAX_TOKENS") throw new Error("A resposta do Gemini foi cortada no limite de tamanho.");
+  if (!text || cand.finishReason === "MAX_TOKENS") {
+    const e = new Error(text ? "A resposta do Gemini foi cortada no limite de tamanho." : `Gemini devolveu resposta vazia (${(cand && cand.finishReason) || "sem motivo"}).`);
+    e.temporario = true;
+    throw e;
+  }
   return text;
 }
 
@@ -365,6 +376,7 @@ async function callGemini(prompt, maxOutputTokens, modelo) {
 // e, persistindo, usa o Claude Code para o aluno nao ficar sem resposta.
 // Outro modelo "flash" disponivel para a chave, para quando o principal estiver sobrecarregado.
 let MODELO_RESERVA;
+let MODELO_ATUAL = GEMINI_MODEL; // muda sozinho se o modelo configurado for aposentado
 async function modeloReserva() {
   if (MODELO_RESERVA === undefined) {
     const nomes = (await modelosGemini()).filter((n) => n !== GEMINI_MODEL && /flash/.test(n));
@@ -373,30 +385,39 @@ async function modeloReserva() {
   return MODELO_RESERVA;
 }
 
-async function iaRapida(prompt, maxOutputTokens) {
+async function iaRapida(prompt, maxOutputTokens, tempoMs) {
+  let erroGemini = null;
   if (process.env.GEMINI_API_KEY) {
-    const modelos = [GEMINI_MODEL];
+    const modelos = [MODELO_ATUAL];
     for (let i = 0; i < modelos.length; i++) {
       try {
-        return extractJsonObject(await callGemini(prompt, maxOutputTokens, modelos[i]));
+        return extractJsonObject(await callGemini(prompt, maxOutputTokens, modelos[i], tempoMs));
       } catch (err) {
-        if (!err.temporario) throw err;
+        if (!err.temporario && !err.trocarModelo && !/extrair JSON/.test(err.message)) throw err;
+        erroGemini = err;
         console.warn(`Gemini ${modelos[i]} indisponivel: ${err.message}`);
         if (i === 0) {
           const reserva = await modeloReserva();
-          if (reserva) modelos.push(reserva);
+          if (reserva && reserva !== modelos[0]) {
+            modelos.push(reserva);
+            if (err.trocarModelo) MODELO_ATUAL = reserva;
+          }
         }
       }
     }
     console.warn("Usando o Claude Code no lugar do Gemini.");
   }
-  return extractJsonObject(unwrapClaudeOutput(await runClaudeCLI(prompt)));
+  try {
+    return extractJsonObject(unwrapClaudeOutput(await runClaudeCLI(prompt)));
+  } catch (err) {
+    if (erroGemini) throw new Error(`${erroGemini.message} | Reserva: ${err.message}`);
+    throw err;
+  }
 }
 
 async function correctWithClaude(tema, texto) {
-  const prompt = buildCorrectionPrompt(tema, texto);
-  const rawOutput = await runClaudeCLI(prompt);
-  return extractJsonObject(unwrapClaudeOutput(rawOutput));
+  // A correcao inteira e longa: ate 4 minutos e 32 mil tokens em cada modelo.
+  return iaRapida(buildCorrectionPrompt(tema, texto), 32768, 4 * 60 * 1000);
 }
 
 async function tutorWithClaude(tema, etapaLabel, dica, texto, etapasAnteriores) {
